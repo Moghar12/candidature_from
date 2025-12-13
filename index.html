@@ -10,25 +10,20 @@
       --bg: #f4f6f8;
       --card: #ffffff;
       --accent: #4f46e5;
+      --danger: #dc2626;
       --muted: #6b7280;
       --radius: 14px;
     }
 
     * { box-sizing: border-box; font-family: Inter, system-ui, sans-serif; }
 
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: #111827;
-    }
+    body { margin: 0; background: var(--bg); }
 
     header {
       background: var(--card);
       padding: 20px 32px;
       border-bottom: 1px solid #e5e7eb;
     }
-
-    h1 { margin: 0; font-size: 22px; }
 
     main {
       padding: 32px;
@@ -49,8 +44,6 @@
       box-shadow: 0 10px 25px rgba(0,0,0,.05);
     }
 
-    h2 { margin-top: 0; font-size: 18px; }
-
     input, select {
       width: 100%;
       padding: 10px 12px;
@@ -60,15 +53,15 @@
     }
 
     button {
-      width: 100%;
-      background: var(--accent);
-      color: white;
+      padding: 6px 10px;
+      border-radius: 8px;
       border: none;
-      padding: 12px;
-      border-radius: 12px;
-      font-weight: 600;
       cursor: pointer;
+      font-weight: 600;
     }
+
+    .primary { background: var(--accent); color: white; }
+    .danger { background: var(--danger); color: white; }
 
     table {
       width: 100%;
@@ -79,10 +72,7 @@
     th, td {
       padding: 12px;
       border-bottom: 1px solid #e5e7eb;
-      text-align: left;
     }
-
-    th { color: var(--muted); }
 
     .badge {
       padding: 4px 10px;
@@ -97,11 +87,7 @@
     .Offre { background: #fef9c3; color: #854d0e; }
     .Refus { background: #fee2e2; color: #991b1b; }
 
-    .alert { background: #fee2e2 !important; }
-
-    @media (max-width: 900px) {
-      .grid { grid-template-columns: 1fr; }
-    }
+    .actions button { margin-right: 6px; }
   </style>
 </head>
 
@@ -114,9 +100,9 @@
 <main>
   <div class="grid">
 
-    <!-- FORMULAIRE -->
+    <!-- FORM -->
     <div class="card">
-      <h2>Nouvelle candidature</h2>
+      <h2 id="formTitle">Nouvelle candidature</h2>
 
       <input id="entreprise" placeholder="Entreprise" />
       <input id="poste" placeholder="Poste" />
@@ -137,7 +123,7 @@
 
       <input type="date" id="dateEnvoi" />
 
-      <button onclick="addCandidature()">Ajouter</button>
+      <button class="primary" onclick="saveCandidature()">💾 Enregistrer</button>
     </div>
 
     <!-- TABLE -->
@@ -152,6 +138,7 @@
             <th>Pays</th>
             <th>Statut</th>
             <th>Jours</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody id="table"></tbody>
@@ -161,15 +148,16 @@
   </div>
 </main>
 
-<!-- 🔥 FIREBASE + LOGIQUE -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
   import {
     getFirestore,
     collection,
     addDoc,
     getDocs,
+    updateDoc,
+    deleteDoc,
+    doc,
     query,
     orderBy
   } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
@@ -177,21 +165,17 @@
   const firebaseConfig = {
     apiKey: "AIzaSyAw0AVKnlyl2EAP4cyMZDHUexp-YeZ6v28",
     authDomain: "candidature-7b183.firebaseapp.com",
-    projectId: "candidature-7b183",
-    storageBucket: "candidature-7b183.firebasestorage.app",
-    messagingSenderId: "1041666132936",
-    appId: "1:1041666132936:web:7860739196e85bf8394efd",
-    measurementId: "G-3T4KJNWXGH"
+    projectId: "candidature-7b183"
   };
 
   const app = initializeApp(firebaseConfig);
-  getAnalytics(app);
   const db = getFirestore(app);
 
+  let editingId = null;
   const table = document.getElementById("table");
 
-  function daysSince(date) {
-    return Math.floor((new Date() - new Date(date)) / (1000 * 60 * 60 * 24));
+  function daysSince(d) {
+    return Math.floor((new Date() - new Date(d)) / (1000 * 60 * 60 * 24));
   }
 
   async function loadCandidatures() {
@@ -199,42 +183,76 @@
     const q = query(collection(db, "candidatures"), orderBy("createdAt", "desc"));
     const snapshot = await getDocs(q);
 
-    snapshot.forEach(doc => {
-      const c = doc.data();
+    snapshot.forEach(docSnap => {
+      const c = docSnap.data();
+      const id = docSnap.id;
       const days = c.dateEnvoi ? daysSince(c.dateEnvoi) : "-";
-      const alert = days > 14 && c.statut === "Envoyée" ? "alert" : "";
 
       table.innerHTML += `
-        <tr class="${alert}">
+        <tr>
           <td>${c.entreprise}</td>
           <td>${c.poste}</td>
           <td>${c.pays}</td>
           <td><span class="badge ${c.statut}">${c.statut}</span></td>
           <td>${days}</td>
+          <td class="actions">
+            <button onclick="editCandidature('${id}')">✏️</button>
+            <button class="danger" onclick="deleteCandidature('${id}')">🗑️</button>
+          </td>
         </tr>`;
     });
   }
 
-  async function addCandidature() {
-    await addDoc(collection(db, "candidatures"), {
+  window.editCandidature = async (id) => {
+    const snapshot = await getDocs(collection(db, "candidatures"));
+    snapshot.forEach(docSnap => {
+      if (docSnap.id === id) {
+        const c = docSnap.data();
+        entreprise.value = c.entreprise;
+        poste.value = c.poste;
+        ville.value = c.ville;
+        pays.value = c.pays;
+        statut.value = c.statut;
+        dateEnvoi.value = c.dateEnvoi;
+        editingId = id;
+        document.getElementById("formTitle").innerText = "Modifier candidature";
+      }
+    });
+  };
+
+  window.saveCandidature = async () => {
+    const data = {
       entreprise: entreprise.value,
       poste: poste.value,
       ville: ville.value,
       pays: pays.value,
       statut: statut.value,
-      dateEnvoi: dateEnvoi.value,
-      createdAt: Date.now()
-    });
+      dateEnvoi: dateEnvoi.value
+    };
 
-    entreprise.value = "";
-    poste.value = "";
-    ville.value = "";
-    dateEnvoi.value = "";
+    if (editingId) {
+      await updateDoc(doc(db, "candidatures", editingId), data);
+      editingId = null;
+    } else {
+      await addDoc(collection(db, "candidatures"), {
+        ...data,
+        createdAt: Date.now()
+      });
+    }
+
+    document.getElementById("formTitle").innerText = "Nouvelle candidature";
+    entreprise.value = poste.value = ville.value = dateEnvoi.value = "";
 
     loadCandidatures();
-  }
+  };
 
-  window.addCandidature = addCandidature;
+  window.deleteCandidature = async (id) => {
+    if (confirm("Supprimer cette candidature ?")) {
+      await deleteDoc(doc(db, "candidatures", id));
+      loadCandidatures();
+    }
+  };
+
   loadCandidatures();
 </script>
 
