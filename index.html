@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gestion des candidatures</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --primary: #1f4e78;
+      --accent: #4f46e5;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --warning: #d97706;
+      --muted: #6b7280;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; font-family: Inter, system-ui, sans-serif; }
+    body { margin: 0; background: var(--bg); color: #111827; }
+    header { background: var(--card); padding: 20px 32px; border-bottom: 1px solid #e5e7eb; }
+    h1 { font-size: 22px; margin: 0; }
+    main { padding: 32px; max-width: 1400px; margin: auto; }
+    .grid { display: grid; grid-template-columns: 1fr 2fr; gap: 24px; }
+    .card { background: var(--card); border-radius: var(--radius); padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,.05); }
+    h2 { margin-top: 0; font-size: 18px; }
+    input, select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #d1d5db; margin-bottom: 12px; }
+    button { background: var(--accent); color: white; border: none; padding: 12px 16px; border-radius: 12px; cursor: pointer; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+    th { color: var(--muted); font-weight: 600; }
+    .badge { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .Envoyée { background: #dbeafe; color: #1e40af; }
+    .Entretien { background: #dcfce7; color: #166534; }
+    .Refus { background: #fee2e2; color: #991b1b; }
+    .Offre { background: #fef9c3; color: #854d0e; }
+    .Relance { background: #ede9fe; color: #5b21b6; }
+    .alert { background: #fee2e2 !important; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<header><h1>📂 Suivi des candidatures</h1></header>
+<main>
+  <div class="grid">
+    <div class="card">
+      <h2>Nouvelle candidature</h2>
+      <input id="entreprise" placeholder="Entreprise" />
+      <input id="poste" placeholder="Poste" />
+      <input id="ville" placeholder="Ville" />
+      <select id="pays"><option>🇫🇷</option><option>🇩🇪</option></select>
+      <select id="statut"><option>Envoyée</option><option>Entretien</option><option>Relance</option><option>Offre</option><option>Refus</option></select>
+      <input type="date" id="dateEnvoi" />
+      <button onclick="addCandidature()">Ajouter</button>
+    </div>
+    <div class="card">
+      <h2>Mes candidatures</h2>
+      <table>
+        <thead><tr><th>Entreprise</th><th>Poste</th><th>Pays</th><th>Statut</th><th>Jours</th></tr></thead>
+        <tbody id="table"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+<script>
+const DB_KEY = "candidatures_db";
+let db = JSON.parse(localStorage.getItem(DB_KEY) || "[]");
+function daysSince(d){return Math.floor((new Date()-new Date(d))/(1000*60*60*24));}
+function render(){
+  const t=document.getElementById("table"); t.innerHTML="";
+  db.forEach(c=>{
+    const days=c.dateEnvoi?daysSince(c.dateEnvoi):"-";
+    const alert=days>14&&c.statut==="Envoyée"?"alert":"";
+    t.innerHTML+=`<tr class="${alert}"><td>${c.entreprise}</td><td>${c.poste}</td><td>${c.pays}</td><td><span class="badge ${c.statut}">${c.statut}</span></td><td>${days}</td></tr>`;
+  });
+}
+function addCandidature(){
+  db.push({entreprise:entreprise.value,poste:poste.value,ville:ville.value,pays:pays.value,statut:statut.value,dateEnvoi:dateEnvoi.value});
+  localStorage.setItem(DB_KEY,JSON.stringify(db)); render();
+}
+render();
+</script>
+</body>
+</html>
