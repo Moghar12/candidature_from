@@ -21,58 +21,96 @@
 
     header {
       background: var(--card);
-      padding: 20px 32px;
+      padding: 16px 20px;
       border-bottom: 1px solid #e5e7eb;
     }
 
+    header h1 { font-size: 20px; margin: 0; }
+
     main {
-      padding: 32px;
+      padding: 20px;
       max-width: 1400px;
       margin: auto;
     }
 
+    /* ===== Layout ===== */
     .grid {
       display: grid;
       grid-template-columns: 1fr 2fr;
-      gap: 24px;
+      gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     .card {
       background: var(--card);
       border-radius: var(--radius);
-      padding: 24px;
+      padding: 20px;
       box-shadow: 0 10px 25px rgba(0,0,0,.05);
     }
 
+    h2 { margin-top: 0; font-size: 18px; }
+
+    /* ===== Form ===== */
     input, select {
       width: 100%;
       padding: 10px 12px;
       border-radius: 10px;
       border: 1px solid #d1d5db;
       margin-bottom: 12px;
+      font-size: 14px;
     }
 
     button {
-      padding: 6px 10px;
-      border-radius: 8px;
+      padding: 8px 12px;
+      border-radius: 10px;
       border: none;
       cursor: pointer;
       font-weight: 600;
+      font-size: 14px;
     }
 
-    .primary { background: var(--accent); color: white; }
+    .primary { background: var(--accent); color: white; width: 100%; }
     .danger { background: var(--danger); color: white; }
+
+    /* ===== Filters ===== */
+    .filters {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .filters {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ===== Table ===== */
+    .table-wrapper {
+      overflow-x: auto;
+    }
 
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 14px;
+      min-width: 650px;
     }
 
     th, td {
-      padding: 12px;
+      padding: 10px 12px;
       border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      white-space: nowrap;
     }
+
+    th { color: var(--muted); font-weight: 600; }
 
     .badge {
       padding: 4px 10px;
@@ -88,6 +126,9 @@
     .Refus { background: #fee2e2; color: #991b1b; }
 
     .actions button { margin-right: 6px; }
+
+    /* Mobile table hint */
+    .hint { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
   </style>
 </head>
 
@@ -109,8 +150,8 @@
       <input id="ville" placeholder="Ville" />
 
       <select id="pays">
-        <option value="🇫🇷">🇫🇷 France</option>
-        <option value="🇩🇪">🇩🇪 Allemagne</option>
+        <option value="🇫🇷 France">🇫🇷 France</option>
+        <option value="🇩🇪 Allemagne">🇩🇪 Allemagne</option>
       </select>
 
       <select id="statut">
@@ -130,19 +171,37 @@
     <div class="card">
       <h2>Mes candidatures</h2>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Entreprise</th>
-            <th>Poste</th>
-            <th>Pays</th>
-            <th>Statut</th>
-            <th>Jours</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="table"></tbody>
-      </table>
+      <!-- Search & Filter -->
+      <div class="filters">
+        <input id="search" placeholder="🔍 Rechercher entreprise ou poste" oninput="applyFilters()" />
+        <select id="filterStatut" onchange="applyFilters()">
+          <option value="">Tous les statuts</option>
+          <option>Envoyée</option>
+          <option>Entretien</option>
+          <option>Relance</option>
+          <option>Offre</option>
+          <option>Refus</option>
+        </select>
+      </div>
+
+      <div class="hint">Sur mobile, glissez horizontalement pour voir toute la table</div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Entreprise</th>
+              <th>Poste</th>
+              <th>Pays</th>
+              <th>Statut</th>
+              <th>Jours</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="table"></tbody>
+        </table>
+      </div>
     </div>
 
   </div>
@@ -172,52 +231,68 @@
   const db = getFirestore(app);
 
   let editingId = null;
+  let allData = [];
   const table = document.getElementById("table");
 
   function daysSince(d) {
     return Math.floor((new Date() - new Date(d)) / (1000 * 60 * 60 * 24));
   }
 
-  async function loadCandidatures() {
+  function renderTable(data) {
     table.innerHTML = "";
-    const q = query(collection(db, "candidatures"), orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(q);
-
-    snapshot.forEach(docSnap => {
-      const c = docSnap.data();
-      const id = docSnap.id;
+    data.forEach((c, index) => {
       const days = c.dateEnvoi ? daysSince(c.dateEnvoi) : "-";
-
       table.innerHTML += `
         <tr>
+          <td>${index + 1}</td>
           <td>${c.entreprise}</td>
           <td>${c.poste}</td>
           <td>${c.pays}</td>
           <td><span class="badge ${c.statut}">${c.statut}</span></td>
           <td>${days}</td>
           <td class="actions">
-            <button onclick="editCandidature('${id}')">✏️</button>
-            <button class="danger" onclick="deleteCandidature('${id}')">🗑️</button>
+            <button onclick="editCandidature('${c.id}')">✏️</button>
+            <button class="danger" onclick="deleteCandidature('${c.id}')">🗑️</button>
           </td>
         </tr>`;
     });
   }
 
-  window.editCandidature = async (id) => {
-    const snapshot = await getDocs(collection(db, "candidatures"));
-    snapshot.forEach(docSnap => {
-      if (docSnap.id === id) {
-        const c = docSnap.data();
-        entreprise.value = c.entreprise;
-        poste.value = c.poste;
-        ville.value = c.ville;
-        pays.value = c.pays;
-        statut.value = c.statut;
-        dateEnvoi.value = c.dateEnvoi;
-        editingId = id;
-        document.getElementById("formTitle").innerText = "Modifier candidature";
-      }
+  async function loadCandidatures() {
+    const q = query(collection(db, "candidatures"), orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    allData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    applyFilters();
+  }
+
+  window.applyFilters = () => {
+    const search = document.getElementById("search").value.toLowerCase();
+    const statut = document.getElementById("filterStatut").value;
+
+    const filtered = allData.filter(c => {
+      const matchSearch =
+        c.entreprise.toLowerCase().includes(search) ||
+        c.poste.toLowerCase().includes(search);
+      const matchStatut = !statut || c.statut === statut;
+      return matchSearch && matchStatut;
     });
+
+    renderTable(filtered);
+  };
+
+  window.editCandidature = (id) => {
+    const c = allData.find(x => x.id === id);
+    if (!c) return;
+
+    entreprise.value = c.entreprise;
+    poste.value = c.poste;
+    ville.value = c.ville;
+    pays.value = c.pays;
+    statut.value = c.statut;
+    dateEnvoi.value = c.dateEnvoi;
+
+    editingId = id;
+    document.getElementById("formTitle").innerText = "Modifier candidature";
   };
 
   window.saveCandidature = async () => {
