@@ -139,6 +139,17 @@
 </header>
 
 <main>
+  <!-- DASHBOARD -->
+  <div class="card" style="margin-bottom:20px">
+    <h2>📊 Dashboard</h2>
+    <div class="dashboard" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px">
+      <div class="card"><strong>Total</strong><div id="statTotal">0</div></div>
+      <div class="card"><strong>Envoyées</strong><div id="statEnvoyee">0</div></div>
+      <div class="card"><strong>Entretiens</strong><div id="statEntretien">0</div></div>
+      <div class="card"><strong>Offres</strong><div id="statOffre">0</div></div>
+      <div class="card"><strong>Refus</strong><div id="statRefus">0</div></div>
+    </div>
+  </div>
   <div class="grid">
 
     <!-- FORM -->
@@ -236,6 +247,14 @@
 
   function daysSince(d) {
     return Math.floor((new Date() - new Date(d)) / (1000 * 60 * 60 * 24));
+  }
+
+  function updateDashboard(data) {
+    document.getElementById('statTotal').innerText = data.length;
+    document.getElementById('statEnvoyee').innerText = data.filter(c=>c.statut==='Envoyée').length;
+    document.getElementById('statEntretien').innerText = data.filter(c=>c.statut==='Entretien').length;
+    document.getElementById('statOffre').innerText = data.filter(c=>c.statut==='Offre').length;
+    document.getElementById('statRefus').innerText = data.filter(c=>c.statut==='Refus').length;
   }
 
   function renderTable(data) {
